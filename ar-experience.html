@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit AR Experience</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #fff;
+            color: #000;
+            line-height: 1.4;
+            font-weight: 400;
+        }
+        
+        .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e1e1e1;
+            position: sticky;
+            top: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .back-link {
+            color: #000;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: opacity 0.2s;
+        }
+        
+        .back-link:hover {
+            opacity: 0.6;
+        }
+        
+        .logo {
+            font-size: 16px;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            color: #000;
+        }
+        
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 60px;
+            align-items: start;
+        }
+        
+        .camera-section {
+            position: sticky;
+            top: 120px;
+        }
+        
+        .camera-container {
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+            background: #fafafa;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .video-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 480px;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+        
+        .status {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .controls-section {
+            padding: 0;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 400;
+            color: #000;
+            margin-bottom: 32px;
+            letter-spacing: -0.01em;
+        }
+        
+        .fruit-selection {
+            margin-bottom: 40px;
+        }
+        
+        .fruit-grid {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .fruit-item {
+            padding: 20px;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #fff;
+        }
+        
+        .fruit-item:hover {
+            border-color: #000;
+        }
+        
+        .fruit-item.active {
+            border-color: #000;
+            background: #fafafa;
+        }
+        
+        .fruit-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .fruit-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        
+        .fruit-info h3 {
+            font-size: 14px;
+            font-weight: 500;
+            color: #000;
+            margin-bottom: 2px;
+        }
+        
+        .fruit-tone {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .color-preview {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .product-preview {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .intensity-section {
+            margin-bottom: 40px;
+        }
+        
+        .intensity-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            font-size: 14px;
+            font-weight: 400;
+        }
+        
+        .intensity-slider {
+            width: 100%;
+            height: 2px;
+            border-radius: 1px;
+            background: #e1e1e1;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        
+        .intensity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #000;
+            cursor: pointer;
+        }
+        
+        .actions {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .btn {
+            padding: 16px 24px;
+            border: 1px solid #000;
+            border-radius: 2px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background: none;
+            letter-spacing: 0.3px;
+        }
+        
+        .btn-primary {
+            background: #000;
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            background: #333;
+        }
+        
+        .btn-secondary {
+            background: #fff;
+            color: #000;
+        }
+        
+        .btn-secondary:hover {
+            background: #fafafa;
+        }
+        
+        .permission-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .permission-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 60px 40px;
+        }
+        
+        .permission-content h2 {
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 16px;
+            color: #000;
+        }
+        
+        .permission-content p {
+            color: #666;
+            margin-bottom: 32px;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 40px;
+                padding: 24px;
+            }
+            
+            .camera-section {
+                position: static;
+            }
+            
+            .video-canvas-container {
+                height: 400px;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .header {
+                padding: 16px 20px;
+            }
+            
+            .main-container {
+                padding: 20px;
+                gap: 32px;
+            }
+            
+            .fruit-item {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="back-link">
+            ← Back
+        </a>
+        <div class="logo">Fruit</div>
+        <div></div>
+    </div>
+    
+    <div id="permission-screen" class="permission-screen" style="display: none;">
+        <div class="permission-content">
+            <h2>Camera access needed</h2>
+            <p>Allow camera access to experience virtual makeup try-on. Your face data is processed locally and never stored.</p>
+            <button class="btn btn-primary" onclick="requestCameraPermission()">Allow Camera</button>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="camera-section">
+            <div class="camera-container">
+                <div class="video-canvas-container">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="output_canvas"></canvas>
+                    <div class="status" id="status">Initializing camera...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls-section">
+            <h2 class="section-title">Choose your fruit tone</h2>
+            
+            <div class="fruit-selection">
+                <div class="fruit-grid">
+                    <div class="fruit-item active" data-fruit="strawberry">
+                        <div class="fruit-header">
+                            <div class="fruit-icon">🍓</div>
+                            <div class="fruit-info">
+                                <h3>Strawberry</h3>
+                                <div class="fruit-tone">Fresh Cool Tone</div>
+                            </div>
+                        </div>
+                        <div class="color-preview">
+                            <div class="color-dot" style="background: #ff6b6b;"></div>
+                            <div class="color-dot" style="background: #ffb3ba;"></div>
+                        </div>
+                        <div class="product-preview">rom&nd Jujube · ₩8,900</div>
+                    </div>
+                    
+                    <div class="fruit-item" data-fruit="peach">
+                        <div class="fruit-header">
+                            <div class="fruit-icon">🍑</div>
+                            <div class="fruit-info">
+                                <h3>Peach</h3>
+                                <div class="fruit-tone">Neutral Warm</div>
+                            </div>
+                        </div>
+                        <div class="color-preview">
+                            <div class="color-dot" style="background: #ff9f80;"></div>
+                            <div class="color-dot" style="background: #ffd1dc;"></div>
+                        </div>
+                        <div class="product-preview">peripera #17 · ₩7,500</div>
+                    </div>
+                    
+                    <div class="fruit-item" data-fruit="orange">
+                        <div class="fruit-header">
+                            <div class="fruit-icon">🍊</div>
+                            <div class="fruit-info">
+                                <h3>Orange</h3>
+                                <div class="fruit-tone">Vivid Warm</div>
+                            </div>
+                        </div>
+                        <div class="color-preview">
+                            <div class="color-dot" style="background: #ff8c00;"></div>
+                            <div class="color-dot" style="background: #ffcc99;"></div>
+                        </div>
+                        <div class="product-preview">3CE Childlike · ₩18,000</div>
+                    </div>
+                    
+                    <div class="fruit-item" data-fruit="fig">
+                        <div class="fruit-header">
+                            <div class="fruit-icon">🍇</div>
+                            <div class="fruit-info">
+                                <h3>Fig</h3>
+                                <div class="fruit-tone">Mute Tone</div>
+                            </div>
+                        </div>
+                        <div class="color-preview">
+                            <div class="color-dot" style="background: #d2a68f;"></div>
+                            <div class="color-dot" style="background: #e8b8a6;"></div>
+                        </div>
+                        <div class="product-preview">AMUSE Fig · ₩9,800</div>
+                    </div>
+                    
+                    <div class="fruit-item" data-fruit="cherry">
+                        <div class="fruit-header">
+                            <div class="fruit-icon">🍒</div>
+                            <div class="fruit-info">
+                                <h3>Cherry</h3>
+                                <div class="fruit-tone">Deep Cool Tone</div>
+                            </div>
+                        </div>
+                        <div class="color-preview">
+                            <div class="color-dot" style="background: #8b0000;"></div>
+                            <div class="color-dot" style="background: #cd5c5c;"></div>
+                        </div>
+                        <div class="product-preview">MAC Diva · ₩28,000</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="intensity-section">
+                <div class="intensity-label">
+                    <span>Intensity</span>
+                    <span id="intensity-value">50%</span>
+                </div>
+                <input type="range" id="intensity" class="intensity-slider" min="0" max="100" value="50">
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-primary" id="complete-look-btn">Complete this look</button>
+                <button class="btn btn-secondary" id="capture-btn">Capture photo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 함수로 권한 요청
+        window.requestCameraPermission = async function() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        facingMode: 'user'
+                    }
+                });
+                
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('permission-screen').style.display = 'none';
+                
+                new FruitMakeupAR();
+                
+            } catch (error) {
+                alert('Camera permission is required for AR makeup features.');
+            }
+        };
+
+        class FruitMakeupAR {
+            constructor() {
+                this.video = document.getElementById('video');
+                this.canvas = document.getElementById('output_canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.status = document.getElementById('status');
+                this.faceMesh = null;
+                this.currentFruit = 'strawberry';
+                this.intensity = 0.5;
+                
+                this.fruitThemes = {
+                    strawberry: {
+                        name: 'Strawberry',
+                        lip: [255, 107, 107],      
+                        blush: [255, 179, 186],
+                        product: "rom&nd Jujube",
+                        price: "₩8,900"
+                    },
+                    peach: {
+                        name: 'Peach',
+                        lip: [255, 159, 128],      
+                        blush: [255, 209, 220],
+                        product: "peripera #17", 
+                        price: "₩7,500"
+                    },
+                    orange: {
+                        name: 'Orange',
+                        lip: [255, 140, 0],        
+                        blush: [255, 204, 153],
+                        product: "3CE Childlike",
+                        price: "₩18,000"
+                    },
+                    fig: {
+                        name: 'Fig',
+                        lip: [210, 166, 143],      
+                        blush: [232, 184, 166],
+                        product: "AMUSE Fig",
+                        price: "₩9,800"
+                    },
+                    cherry: {
+                        name: 'Cherry',
+                        lip: [139, 0, 0],          
+                        blush: [205, 92, 92],
+                        product: "MAC Diva",
+                        price: "₩28,000"
+                    }
+                };
+                
+                this.lipLandmarks = {
+                    upperLip: [61, 84, 17, 314, 405, 320, 307, 375, 321, 308, 324, 318],
+                    lowerLip: [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 95, 88, 178, 87, 14, 317, 402, 318, 324],
+                };
+                
+                this.blushAreas = {
+                    left: { center: 116 },
+                    right: { center: 345 }
+                };
+                
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    await this.setupCamera();
+                    await this.setupFaceMesh();
+                    this.setupEventListeners();
+                    this.updateStatus('Ready! Position your face in the camera');
+                } catch (error) {
+                    console.error('AR initialization error:', error);
+                    this.showError('Failed to initialize AR. Please refresh.');
+                }
+            }
+            
+            async setupCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: 'user'
+                        }
+                    });
+                    
+                    this.video.srcObject = stream;
+                    
+                    return new Promise((resolve) => {
+                        this.video.onloadedmetadata = () => {
+                            this.canvas.width = this.video.videoWidth;
+                            this.canvas.height = this.video.videoHeight;
+                            resolve();
+                        };
+                    });
+                } catch (error) {
+                    throw new Error('Camera access denied');
+                }
+            }
+            
+            async setupFaceMesh() {
+                this.faceMesh = new FaceMesh({
+                    locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                    }
+                });
+                
+                this.faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.7,
+                    minTrackingConfidence: 0.7
+                });
+                
+                this.faceMesh.onResults((results) => {
+                    this.onResults(results);
+                });
+                
+                const camera = new Camera(this.video, {
+                    onFrame: async () => {
+                        await this.faceMesh.send({image: this.video});
+                    },
+                    width: 1280,
+                    height: 720
+                });
+                
+                camera.start();
+            }
+            
+            onResults(results) {
+                this.ctx.save();
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                    const landmarks = results.multiFaceLandmarks[0];
+                    this.applyMakeup(landmarks);
+                    this.updateStatus(`Applying ${this.fruitThemes[this.currentFruit].name} makeup`);
+                } else {
+                    this.updateStatus('Looking for face...');
+                }
+                
+                this.ctx.restore();
+            }
+            
+            applyMakeup(landmarks) {
+                const colors = this.fruitThemes[this.currentFruit];
+                
+                this.applyBlush(landmarks, colors.blush);
+                this.applyLipMakeup(landmarks, colors.lip);
+            }
+            
+            applyLipMakeup(landmarks, color) {
+                this.ctx.globalAlpha = this.intensity * 0.8;
+                
+                this.drawLipSection(landmarks, this.lipLandmarks.upperLip, color, 0.9);
+                this.drawLipSection(landmarks, this.lipLandmarks.lowerLip, color, 1.0);
+            }
+            
+            drawLipSection(landmarks, indices, color, intensityMultiplier) {
+                const points = indices.map(i => ({
+                    x: landmarks[i].x * this.canvas.width,
+                    y: landmarks[i].y * this.canvas.height
+                }));
+                
+                this.ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${this.intensity * intensityMultiplier * 0.7})`;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(points[0].x, points[0].y);
+                
+                for (let i = 1; i < points.length; i++) {
+                    this.ctx.lineTo(points[i].x, points[i].y);
+                }
+                
+                this.ctx.closePath();
+                this.ctx.fill();
+            }
+            
+            applyBlush(landmarks, color) {
+                this.drawBlush(landmarks, this.blushAreas.left, color);
+                this.drawBlush(landmarks, this.blushAreas.right, color);
+            }
+            
+            drawBlush(landmarks, blushArea, color) {
+                const center = {
+                    x: landmarks[blushArea.center].x * this.canvas.width,
+                    y: landmarks[blushArea.center].y * this.canvas.height
+                };
+                
+                const gradient = this.ctx.createRadialGradient(
+                    center.x, center.y, 0,
+                    center.x, center.y, 45
+                );
+                
+                const opacity = this.intensity * 0.4;
+                gradient.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${opacity})`);
+                gradient.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+                
+                this.ctx.globalAlpha = 1;
+                this.ctx.fillStyle = gradient;
+                this.ctx.beginPath();
+                this.ctx.arc(center.x, center.y, 45, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
+            
+            setupEventListeners() {
+                document.querySelectorAll('.fruit-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        document.querySelectorAll('.fruit-item').forEach(i => i.classList.remove('active'));
+                        item.classList.add('active');
+                        this.currentFruit = item.dataset.fruit;
+                        this.updateStatus(`${this.fruitThemes[this.currentFruit].name} selected`);
+                    });
+                });
+                
+                const intensitySlider = document.getElementById('intensity');
+                const intensityValue = document.getElementById('intensity-value');
+                
+                intensitySlider.addEventListener('input', (e) => {
+                    this.intensity = parseInt(e.target.value) / 100;
+                    intensityValue.textContent = e.target.value + '%';
+                });
+                
+                document.getElementById('capture-btn').addEventListener('click', () => {
+                    this.captureImage();
+                });
+                
+                document.getElementById('complete-look-btn').addEventListener('click', () => {
+                    this.completeThisLook();
+                });
+            }
+            
+            captureImage() {
+                const captureCanvas = document.createElement('canvas');
+                const captureCtx = captureCanvas.getContext('2d');
+                
+                captureCanvas.width = this.canvas.width;
+                captureCanvas.height = this.canvas.height;
+                
+                captureCtx.scale(-1, 1);
+                captureCtx.drawImage(this.video, -captureCanvas.width, 0, captureCanvas.width, captureCanvas.height);
+                captureCtx.scale(-1, 1);
+                
+                captureCtx.scale(-1, 1);
+                captureCtx.drawImage(this.canvas, -captureCanvas.width, 0);
+                captureCtx.scale(-1, 1);
+                
+                const link = document.createElement('a');
+                link.download = `fruit-makeup-${this.currentFruit}-${Date.now()}.png`;
+                link.href = captureCanvas.toDataURL();
+                link.click();
+                
+                this.updateStatus('Photo captured!');
+                
+                setTimeout(() => {
+                    if (confirm('Photo saved! Would you like to see recommended products for this look?')) {
+                        this.completeThisLook();
+                    }
+                }, 1000);
+            }
+            
+            completeThisLook() {
+                const makeupData = {
+                    fruit: this.currentFruit,
+                    intensity: this.intensity,
+                    timestamp: new Date().toISOString()
+                };
+                
+                localStorage.setItem('selectedMakeup', JSON.stringify(makeupData));
+                window.location.href = `result-summary.html?theme=${this.currentFruit}&intensity=${Math.round(this.intensity * 100)}`;
+            }
+            
+            updateStatus(message) {
+                this.status.textContent = message;
+            }
+            
+            showError(message) {
+                this.status.textContent = '❌ ' + message;
+            }
+        }
+        
+        // 앱 시작
+        window.addEventListener('load', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const preselectedTheme = urlParams.get('theme');
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.querySelector('.main-container').innerHTML = `
+                    <div style="text-align: center; padding: 3rem; color: #666;">
+                        <h2>Browser not supported</h2>
+                        <p>Please use Chrome, Firefox, or Safari.</p>
+                        <a href="index.html" style="color: #000; text-decoration: underline;">← Back to Home</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost' && !location.hostname.includes('netlify.app')) {
+                document.querySelector('.main-container').innerHTML = `
+                    <div style="text-align: center; padding: 3rem; color: #666;">
+                        <h2>HTTPS required</h2>
+                        <p>Camera access requires a secure connection.</p>
+                        <a href="index.html" style="color: #000; text-decoration: underline;">← Back to Home</a>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                const permissions = await navigator.permissions.query({name: 'camera'});
+                
+                if (permissions.state === 'granted') {
+                    const ar = new FruitMakeupAR();
+                    
+                    if (preselectedTheme && ar.fruitThemes[preselectedTheme]) {
+                        setTimeout(() => {
+                            ar.currentFruit = preselectedTheme;
+                            document.querySelectorAll('.fruit-item').forEach(item => {
+                                item.classList.remove('active');
+                                if (item.dataset.fruit === preselectedTheme) {
+                                    item.classList.add('active');
+                                }
+                            });
+                            ar.updateStatus(`${ar.fruitThemes[preselectedTheme].name} pre-selected`);
+                        }, 2000);
+                    }
+                } else {
+                    document.getElementById('permission-screen').style.display = 'flex';
+                }
+            } catch (error) {
+                try {
+                    const ar = new FruitMakeupAR();
+                    
+                    if (preselectedTheme && ar.fruitThemes[preselectedTheme]) {
+                        setTimeout(() => {
+                            ar.currentFruit = preselectedTheme;
+                            document.querySelectorAll('.fruit-item').forEach(item => {
+                                item.classList.remove('active');
+                                if (item.dataset.fruit === preselectedTheme) {
+                                    item.classList.add('active');
+                                }
+                            });
+                            ar.updateStatus(`${ar.fruitThemes[preselectedTheme].name} pre-selected`);
+                        }, 2000);
+                    }
+                } catch (initError) {
+                    document.getElementById('permission-screen').style.display = 'flex';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
